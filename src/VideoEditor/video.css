@@ -1,0 +1,69 @@
+.container {
+  display: flex;
+}
+
+.video-section {
+  display: flex; /* Flexbox 레이아웃을 활성화 */
+  justify-content: center; /* 가로축 기준 중앙 정렬 */
+  align-items: center; /* 세로축 기준 중앙 정렬, 필요한 경우에만 사용 */
+  margin-right: 50px; /* 필요한 경우만 유지 */
+  position: relative;
+  width: 800px; /* 부모 컨테이너의 너비 */
+  height: 450px; /* 부모 컨테이너의 높이 */
+}
+
+.video-section-save {
+  margin: 0; /* margin-right는 여기서는 필요하지 않으므로 제거 */
+  position: relative; /* 상대적 위치 설정 */
+  width: 254px; /* 자식 요소의 너비 */
+  height: 450px; /* 자식 요소의 높이 */
+}
+
+.input-section {
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* 간격 증가 */
+  padding: 25px; /* 패딩 증가 */
+  border: 1px solid #ddd;
+  /* box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1); */
+  width: calc(100% - 900px); /* 비디오 너비 및 패딩을 조정 */
+  height: 450px;
+  overflow-y: auto;
+}
+
+.subtitle-input label {
+  display: block;
+  margin-top: 10px; /* 여백 증가 */
+  font-size: 16px; /* 라벨 글자 크기 증가 */
+}
+
+.subtitle-input input,
+.subtitle-input select {
+  margin-top: 10px;
+  width: 100%; /* 입력 항목 너비 조정 */
+  padding: 8px; /* 패딩 증가 */
+  font-size: 16px; /* 글자 크기 증가 */
+  border-radius: 5px; /* 경계 반올림 추가 */
+  border: 1px solid #ccc; /* 테두리 스타일 조정 */
+}
+
+.subtitle-input button {
+  margin-top: 15px;
+  padding: 10px 15px; /* 패딩 조정 */
+  font-size: 16px; /* 글자 크기 조정 */
+  background-color: #007bff; /* 버튼 배경색 추가 */
+  color: #fff; /* 버튼 글자색 추가 */
+  border: none;
+  border-radius: 5px; /* 경계 반올림 추가 */
+  cursor: pointer; /* 마우스 포인터 스타일 변경 */
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+}
+
+.video-subtitle {
+  position: absolute;
+}
