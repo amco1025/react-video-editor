@@ -19,7 +19,6 @@ import { Rnd } from "react-rnd";
 
 function Editor({
   videoUrl,
-  videoBlob,
   timings,
   setTimings,
   setIsAdding,
@@ -83,7 +82,7 @@ function Editor({
     if (playVideoRef.current.onloadedmetadata) {
       const currentIndex = currentlyGrabbedRef.current.index;
       const currentTiming = timings[currentIndex];
-      console.log(playVideoRef.current.currentTime);
+      // console.log(playVideoRef.current.currentTime);
       const seek =
         ((playVideoRef.current.currentTime - currentTiming.start) /
           playVideoRef.current.duration) *
@@ -182,6 +181,10 @@ function Editor({
     updatedTimings[index].crop = { x, y, width, height };
     setAllTimings(updatedTimings);
   };
+  const updateSubtitleDisplay = (currentTime) => {
+    const activeSubtitles = renderSubtitle(currentTime);
+    setCurrentSubtitle(activeSubtitles);
+  };
 
   const addSubtitle = () => {
     const subtitleText = document.getElementById("subtitleText").value;
@@ -230,6 +233,63 @@ function Editor({
     } else {
       setCurrentSubtitle("");
     }
+  };
+
+  const handleDragStart = (event, subtitle) => {
+    event.dataTransfer.setData("text/plain", JSON.stringify(subtitle));
+  };
+
+  const renderSubtitle = (subtitle, currentTime) => {
+    if (currentTime >= subtitle.startTime && currentTime < subtitle.endTime) {
+      return (
+        <div
+          className="video-subtitle"
+          draggable="true"
+          onDragStart={(event) => handleDragStart(event, subtitle)}
+          style={{
+            position: "absolute",
+            left: subtitle.styles.left,
+            top: subtitle.styles.top,
+            color: subtitle.styles.color,
+            fontSize: subtitle.styles.fontSize,
+          }}
+        >
+          {subtitle.text}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    const droppedData = JSON.parse(event.dataTransfer.getData("text/plain"));
+    const videoContainerRect = event.currentTarget.getBoundingClientRect();
+    const newLeft =
+      ((event.clientX - videoContainerRect.left) / videoContainerRect.width) *
+      100;
+    const newTop =
+      ((event.clientY - videoContainerRect.top) / videoContainerRect.height) *
+      100;
+
+    setSubtitles(
+      subtitles.map((sub) => {
+        if (
+          sub.startTime === droppedData.startTime &&
+          sub.endTime === droppedData.endTime
+        ) {
+          return {
+            ...sub,
+            styles: {
+              ...sub.styles,
+              left: `${newLeft}%`,
+              top: `${newTop}%`,
+            },
+          };
+        }
+        return sub;
+      })
+    );
   };
 
   const handleMouseMoveWhenGrabbed = (event) => {
@@ -336,10 +396,9 @@ function Editor({
       }
       playVideoRef.current.play();
     }
-    console.log("백으로 보내야할 사용할 동영상의 시간 부분");
-    console.log(timings);
     console.log("보낼꺼");
     console.log(videos);
+    console.log(subtitles);
     setPlaying(!playing);
   };
 
@@ -407,8 +466,8 @@ function Editor({
         const { x, y, width, height } = video.crop;
         const outputFileName = `output${i}.mp4`;
 
-        const inputFiles = ffmpeg.current.FS("readdir", "/");
-        console.log("Input files:", inputFiles);
+        // const inputFiles = ffmpeg.current.FS("readdir", "/");
+        // console.log("Input files:", inputFiles);
         ffmpeg.current.FS(
           "writeFile",
           `input${i}.mp4`,
@@ -475,8 +534,8 @@ function Editor({
       setTrimmedVideo(finalUrl);
       setTrimmingDone(true);
 
-      console.log("Combined Video URL:", finalUrl);
-      console.log("Trimmed Videos URLs:", trimmedVideos);
+      // console.log("Combined Video URL:", finalUrl);
+      // console.log("Trimmed Videos URLs:", trimmedVideos);
     } catch (error) {
       console.log(error);
     }
@@ -486,13 +545,96 @@ function Editor({
       console.log("trimmingDone is now true, component should update.");
     }
   }, [trimmingDone]);
+
+  const [audioFile, setAudioFile] = useState(null);
+  const [audioStartTime, setAudioStartTime] = useState("00:00:00");
+  const audioRef = useRef(null);
+
+  // videos 배열로부터 전체 비디오의 길이를 계산합니다.
+  const trimmedVideoLength = videos.reduce((totalDuration, video) => {
+    return totalDuration + (video.end - video.start);
+  }, 0);
+
+  // 오디오 파일 변경 함수
+  const handleAudioFileChange = (event) => {
+    const file = event.target.files[0];
+    const objectUrl = URL.createObjectURL(file);
+    setAudioFile(objectUrl);
+  };
+
+  // 오디오 시작 시간 변경 함수
+  const handleAudioStartTimeChange = (event) => {
+    setAudioStartTime(event.target.value);
+  };
+
+  // 오디오 슬라이더가 변경될 때의 함수
+  const handleSliderChange = (event) => {
+    const time = Number(event.target.value);
+    setAudioStartTime(time);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
+
+  const togglePlayPause = () => {
+    if (audioRef.current) {
+      if (audioRef.current.paused) {
+        audioRef.current.play();
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  };
+
+  // 현재 오디오의 재생 시간을 슬라이더에 업데이트하는 함수
+  const updateSliderPosition = () => {
+    const currentTime = audioRef.current ? audioRef.current.currentTime : 0;
+    setAudioStartTime(currentTime);
+  };
+
+  const handleSubmit = () => {
+    if (!audioFile || audioStartTime === "") {
+      alert("오디오 파일과 시작 시간을 모두 지정해야 합니다.");
+      return;
+    }
+
+    // 오디오 시작 시간이 올바른 문자열 포맷인지 검증합니다.
+    if (!/^(\d{2}):(\d{2}):(\d{2})$/.test(audioStartTime)) {
+      alert("시작 시간은 HH:MM:SS 형태로 입력해야 합니다.");
+      return;
+    }
+
+    const audioEndTime = calculateEndTime(audioStartTime, trimmedVideoLength);
+
+    // 오디오 파일 정보와 시작/끝 시간을 콘솔에 출력합니다.
+    console.log("오디오 파일:", audioFile);
+    console.log("오디오 시작 시간:", audioStartTime);
+    console.log("오디오 끝 시간:", audioEndTime);
+  };
+  const calculateEndTime = (startTime, videoLength) => {
+    // 오디오 끝 시간을 계산하는 로직
+    const [hours, minutes, seconds] = startTime.split(":").map(Number);
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds + videoLength;
+    const endHours = Math.floor(totalSeconds / 3600);
+    const endMinutes = Math.floor((totalSeconds % 3600) / 60);
+    const endSeconds = totalSeconds % 60;
+    return `${endHours.toString().padStart(2, "0")}:${endMinutes
+      .toString()
+      .padStart(2, "0")}:${endSeconds.toString().padStart(2, "0")}`;
+  };
+
+  console.log(trimmedVideo);
   return (
     <div className="wrapper">
       <div className="container">
         {trimmingDone}
         {trimmingDone ? (
           <div className="video-section">
-            <div className="video-section-save">
+            <div
+              className="video-section-save"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={handleDrop}
+            >
               <video
                 className="video"
                 autoPlay
@@ -505,14 +647,23 @@ function Editor({
                 onTimeUpdate={() => {
                   const currentTime = playVideoRef.current.currentTime;
                   setSeekerBar(progressBarRef.current.style.width);
-                  updateSubtitle(currentTime);
+                  const activeSubtitles = subtitles
+                    .filter(
+                      (sub) =>
+                        currentTime >= sub.startTime &&
+                        currentTime < sub.endTime
+                    )
+                    .map((sub) => renderSubtitle(sub, currentTime));
+                  setCurrentSubtitle(activeSubtitles);
                 }}
                 key={trimmedVideo}
               >
                 <source src={trimmedVideo} type="video/mp4" />
               </video>
-              <div className="video-subtitle">{currentSubtitle}</div>
+              {currentSubtitle}
+              {/* {renderSubtitle(playVideoRef.current?.currentTime || 0)} */}
             </div>
+            {/* <div className="video-subtitle">{currentSubtitle}</div> */}
           </div>
         ) : (
           <div className="video-section">
@@ -764,7 +915,39 @@ function Editor({
             )}
           </button>
         </div>
-
+        <div>
+          <h2>오디오 미리 듣기 및 추가</h2>
+          <input
+            type="file"
+            accept="audio/*"
+            onChange={handleAudioFileChange}
+          />
+          {audioFile && (
+            <>
+              <audio
+                ref={audioRef}
+                onTimeUpdate={updateSliderPosition}
+                src={audioFile}
+              />
+              <button onClick={togglePlayPause}>재생 / 일시정지</button>
+              <input
+                type="range"
+                min="0"
+                max={audioRef.current ? audioRef.current.duration : 0}
+                value={audioStartTime}
+                onChange={handleSliderChange}
+                step="0.01"
+              />
+              <input
+                type="text"
+                placeholder="시작 시간 (HH:MM:SS)"
+                value={audioStartTime}
+                onChange={handleAudioStartTimeChange}
+              />
+              <button onClick={handleSubmit}>오디오 추가 완료</button>
+            </>
+          )}
+        </div>
         <div>
           <button
             title="Save changes"
